@@ -705,8 +705,9 @@ components:
                   type: string
                   description: Link to urent games of the Player
                   format: uri
+                  example: 'http://api.host/games?playerId={playerid}'
       description: |-
-        Player Resource Data Model.
+        Player Resource Data Model. `kind` is `Player`.
         Inherits **ResourceSuperClass**.
         Player ID is equal to ID of User Resource from Application Users v2 API - the Player owner. Only one Player Resource allowed per User.
     NewGameAttributes:
