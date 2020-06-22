@@ -1,0 +1,888 @@
+openapi: 3.0.0
+info:
+  title: Game Server
+  version: '1.0'
+  description: N-in-Line Game Server API.
+  contact:
+    name: API Support
+    url: 'https://support.example.com/apis'
+    email: support-apis@example.com
+  termsOfService: 'https://example.com/terms'
+  license:
+    name: Creative Commons 4.0
+    url: 'https://creativecommons.org/licenses/by/4.0/'
+tags:
+  - name: players
+    description: Everything related to Players
+  - name: games
+    description: Everything related to Games
+  - name: scores
+    description: Everything related to Scores
+servers:
+  - url: 'http://localhost:5000'
+    description: Development Server
+paths:
+  /players:
+    get:
+      summary: List Players
+      tags:
+        - players
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Player'
+        '400':
+          description: Bad Request - invalid or incorrect Query String params
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+        '406':
+          description: Not Acceptable - we support JSON only
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+      operationId: get-players
+      description: List Players operation
+      parameters:
+        - schema:
+            type: string
+            example: darkRider
+          in: query
+          name: nick
+          description: Filter Players by nick
+        - schema:
+            type: integer
+            minimum: 0
+            example: 15
+          in: query
+          name: score.lte
+          description: Filter by score less then or equal
+        - schema:
+            type: integer
+            minimum: 0
+            example: 25
+          in: query
+          name: score.gte
+          description: Filter by score greater then or equal
+        - schema:
+            type: string
+            example: 'nick,score'
+          in: query
+          name: fields
+          description: Comma separated list of fields to include in Response
+        - schema:
+            type: string
+            example: '-score,+nick'
+          in: query
+          name: sortBy
+          description: 'Comma separated list of fields to sort by, use + prefix for ascending and - prefix for descending order'
+        - schema:
+            type: integer
+            minimum: 0
+            example: 100
+          in: query
+          name: offset
+          description: Pagination - start at this item
+        - schema:
+            type: integer
+            minimum: 0
+            example: 25
+          in: query
+          name: limit
+          description: Pagination - return max this many items in Response
+    post:
+      summary: Create Player
+      operationId: post-players
+      responses:
+        '201':
+          description: Created
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+              description: URI of newly created Resource
+        '400':
+          description: Bad Request - Player for this User exists or nick already taken
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+        '404':
+          description: User Resource not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+        '415':
+          description: Unsupported Media Type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+      description: |-
+        Create Player operation. New Player Resource has 1-to-1 relation to User resource from Application Users v2.
+        Admin User can create Player Resource on behalf of other User.
+        Non-admin User can create Player Resource only for itself, User URI in Request body is ignored in this case.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nick:
+                  type: string
+                  description: 'Nick name of new Player, must be unique'
+                user:
+                  type: string
+                  format: uri
+                  description: URL of User Resource from Application Users v2
+              required:
+                - nick
+        description: ''
+      tags:
+        - players
+  '/players/{userid}':
+    parameters:
+      - schema:
+          type: string
+        name: userid
+        in: path
+        required: true
+        description: Unique User ID of Player
+    get:
+      summary: Get Player
+      tags: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Player'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+        '406':
+          description: Not Acceptable - we work with JSON only
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+      operationId: get-players-userid
+      description: Retrieve Player Resource representation
+    delete:
+      summary: Delete Player
+      operationId: delete-players-userid
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+      description: Permamenty remove Player Resource
+      tags:
+        - players
+  /games:
+    get:
+      summary: List Games
+      tags:
+        - games
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Game'
+      operationId: get-games
+      description: List Game Resources. Admin User may list all Games. Non-admin User lists Games in which is a Player.
+      parameters:
+        - schema:
+            type: string
+            example: Semifinals
+          in: query
+          name: name
+          description: Filter by Game name
+        - schema:
+            type: string
+          in: query
+          name: playerId
+          description: Filter Games with this Player
+        - schema:
+            type: string
+          in: query
+          name: player1Id
+          description: Filter games with this Player 1
+        - schema:
+            type: string
+          in: query
+          name: player2Id
+          description: Filter Games with this Player 2
+        - schema:
+            type: string
+            format: date-time
+            example: '2020-10-20T14:23:01Z'
+          in: query
+          name: createdBefore
+          description: Filter Games created before this date-time
+        - schema:
+            type: string
+            format: date-time
+            example: '2020-10-20T14:23:01Z'
+          in: query
+          name: createdAfter
+          description: Filter Games created after this date-time
+        - schema:
+            type: string
+            example: 'Cancelled,Rejected'
+          in: query
+          name: status
+          description: Comma separated list of Game statuses
+        - schema:
+            type: string
+            example: 'name,links.player1,result.player1Points'
+          in: query
+          name: fields
+          description: Comma separated list of fields to include in Response
+        - schema:
+            type: string
+            example: '-createdTime'
+          in: query
+          name: sortBy
+          description: 'Comma separated list of fields to sort by, use + prefix for ascending and - prefix for descending order'
+        - schema:
+            type: integer
+            example: 100
+            minimum: 0
+          in: query
+          name: offset
+          description: List starting with this item
+        - schema:
+            type: integer
+            example: 25
+            minimum: 0
+          in: query
+          name: limit
+          description: List this many items
+    post:
+      summary: Create Game
+      operationId: post-games
+      responses:
+        '201':
+          description: Created
+          headers:
+            Location:
+              schema:
+                type: string
+              description: URL of newly created Game
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+        '415':
+          description: Unsupported Media Type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+      description: Create new Game Resource
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewGameAttributes'
+        description: ''
+      tags:
+        - games
+  '/games/{gameid}':
+    parameters:
+      - schema:
+          type: string
+        name: gameid
+        in: path
+        required: true
+        description: Unique ID of Game Resource
+    get:
+      summary: Get Game
+      tags:
+        - games
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Game'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+      operationId: get-games-gameid
+      description: Retrieve Game Resource representation
+    delete:
+      summary: Delete Game
+      operationId: delete-games-gameid
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+      description: Permanently remove Game Resource
+      tags:
+        - games
+  '/games/{gameid}/accept':
+    parameters:
+      - schema:
+          type: string
+        name: gameid
+        in: path
+        required: true
+        description: Unique ID of Game Resource
+    post:
+      summary: Accept Game
+      operationId: post-games-gameid-accept
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+      description: Accept Game Controller
+      tags:
+        - games
+  '/games/{gameid}/reject':
+    parameters:
+      - schema:
+          type: string
+        name: gameid
+        in: path
+        required: true
+        description: Unique ID of Game Resource
+    post:
+      summary: Reject Game
+      operationId: post-games-gameid-reject
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+      description: Reject Game Controller
+      tags:
+        - games
+  '/games/{gameid}/cancel':
+    parameters:
+      - schema:
+          type: string
+        name: gameid
+        in: path
+        required: true
+        description: Unique ID of Game Resource
+    post:
+      summary: Cancel Game
+      operationId: post-games-gameid-cancel
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+      description: Cancel Game Controller
+      tags:
+        - games
+  '/games/{gameid}/submit-move':
+    parameters:
+      - schema:
+          type: string
+        name: gameid
+        in: path
+        required: true
+        description: Unique ID of Game Resource
+    post:
+      summary: Submit Move
+      operationId: post-games-gameid-submit-move
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request - incorrect or invalid move or JSON in Request Body or not your turn
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+        '404':
+          description: Game Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+        '415':
+          description: Unsupported Media Type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+      tags:
+        - games
+      description: Submit move Controller
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                column:
+                  type: integer
+                  example: 5
+                  minimum: 1
+                  maximum: 20
+  '/games/{gameid}/propose-draw':
+    parameters:
+      - schema:
+          type: string
+        name: gameid
+        in: path
+        required: true
+        description: Unique ID of Game Resource
+    post:
+      summary: Propose Draw
+      operationId: post-games-gameid-propose-draw
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: You cannot propose draw now
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+      description: Propose Draw Controller
+      tags:
+        - games
+  '/games/{gameid}/accept-draw':
+    parameters:
+      - schema:
+          type: string
+        name: gameid
+        in: path
+        required: true
+        description: Unique ID of Game Resource
+    post:
+      summary: Accept Draw Game
+      operationId: post-games-gameid-accept-draw
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: You cannot accept draw now
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneralError'
+      description: Accept Draw Controller
+      tags:
+        - games
+  /scores:
+    get:
+      summary: List Scores
+      tags:
+        - scores
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    points:
+                      type: number
+                      description: Total amount of Player points
+                      example: 250
+                    nick:
+                      type: string
+                      description: "Player's nick name"
+                    links:
+                      type: object
+                      properties:
+                        player:
+                          type: string
+                          format: uri
+                          description: Link to Player Resource
+      operationId: get-scores
+      description: Retrieve Game Score Leaderboard
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - ascending
+              - descending
+          in: query
+          name: order
+          description: ascending or descending
+        - schema:
+            type: integer
+            minimum: 0
+            example: 100
+          in: query
+          name: offset
+          description: Pagination - start at this item
+        - schema:
+            type: integer
+            minimum: 0
+            example: 25
+          in: query
+          name: limit
+          description: Pagination - return max this many items in Response
+components:
+  schemas:
+    Player:
+      title: Player
+      allOf:
+        - $ref: '#/components/schemas/ResourceSuperClass'
+        - type: object
+          description: Player Resource Data Model. `kind` is `Player`
+          properties:
+            nick:
+              type: string
+              description: Nickname used in Games
+            score:
+              type: string
+              description: 'Lifetime score of the Player, sum of all points earned'
+            links:
+              type: object
+              properties:
+                games:
+                  type: string
+                  description: Link to urent games of the Player
+                  format: uri
+      description: |-
+        Player Resource Data Model.
+        Inherits **ResourceSuperClass**.
+        Player ID is equal to ID of User Resource from Application Users v2 API - the Player owner. Only one Player Resource allowed per User.
+    NewGameAttributes:
+      title: NewGameAttributes
+      type: object
+      description: 'Model used in **Create Game** operation, embeds **NinLIneGameConfiguration** as `configuration`'
+      properties:
+        name:
+          type: string
+          description: Unique name of the Game
+          minLength: 1
+          maxLength: 30
+          example: Semifinals
+        configuration:
+          $ref: '#/components/schemas/NinLineGameConfigration'
+        links:
+          type: object
+          properties:
+            player2:
+              type: string
+              description: Link to invited Player Resource
+              format: uri
+    NinLineGameConfigration:
+      title: NinLineGameConfigration
+      type: object
+      description: Board configuration and winnig line length of N-in-Line Game
+      properties:
+        rows:
+          type: integer
+          example: 6
+          minimum: 3
+          maximum: 20
+          description: Rows in Game board
+        columns:
+          type: integer
+          example: 7
+          minimum: 5
+          maximum: 20
+          description: Columns in Game board
+        target:
+          type: integer
+          example: 4
+          minimum: 3
+          maximum: 10
+          description: Winning line length
+    NinLineGameState:
+      title: NinLineGameState
+      type: object
+      description: |-
+        Board state of N-in-Line Game. Array of arrays, each item is one of:
+        0 - empty
+        1 - token of Player 1
+        2 - token of Player 2
+      properties:
+        board:
+          type: array
+          minItems: 3
+          maxItems: 20
+          description: Board rows
+          items:
+            type: array
+            minItems: 5
+            maxItems: 20
+            description: Board columns
+            items:
+              type: integer
+              example: 0
+              minimum: 0
+              maximum: 2
+    Game:
+      title: Game
+      description: |-
+        Game Data Model. `kind` is `Game`.
+        This Data Model inherits **ResourceSuperClass** and **NewGameAttributes**, embeds **NinLineGameState** as `gameState` attribute.
+      allOf:
+        - $ref: '#/components/schemas/ResourceSuperClass'
+        - $ref: '#/components/schemas/NewGameAttributes'
+        - type: object
+          properties:
+            links:
+              type: object
+              properties:
+                player1:
+                  type: string
+                  description: Link to Game creator
+            createdTime:
+              type: string
+              format: date-time
+              example: '2020-10-20T14:20:01Z'
+              description: Game creation date-time
+            status:
+              type: string
+              example: Created
+              enum:
+                - Created
+                - Cancelled
+                - Rejected
+                - Player1Turn
+                - Player2Turn
+                - Player1ProposedDraw
+                - Player2ProposedDraw
+                - Draw
+                - Player1Won
+                - Player2Won
+            lastMove:
+              type: object
+              properties:
+                player:
+                  type: string
+                  format: uri
+                  description: URL of Player
+                move:
+                  type: string
+                  description: String representation of a Move
+                timeStamp:
+                  type: string
+                  format: date-time
+                  example: '2020-10-20T14:23:01Z'
+                  description: Date-time of last move
+            gameState:
+              $ref: '#/components/schemas/NinLineGameState'
+            result:
+              type: object
+              properties:
+                player1Points:
+                  type: number
+                  description: Points achieved by Player 1 in this Game
+                  example: 3
+                player2Points:
+                  type: number
+                  description: Points achieved by Player 1 in this Game
+                  example: 1
+    ResourceSuperClass:
+      title: ResourceSuperClass
+      type: object
+      description: ''
+      properties:
+        id:
+          type: string
+          description: Unique ID of the Resource
+        kind:
+          type: string
+          description: Type of the Resource
+        links:
+          type: object
+          properties:
+            self:
+              type: string
+              description: 'URI of this Resource, self link'
+    GeneralError:
+      title: GeneralError
+      type: object
+      description: Data Model of Object returned in Error Responses
+      properties:
+        code:
+          type: string
+          description: Error code symbol. Please check Application documentation
+          example: B032
+        description:
+          type: string
+          example: Invalid JSON in Request Body
+        links:
+          type: object
+          properties:
+            documentation:
+              type: string
+              description: URL of API documentation relevant to this Error
+              format: uri
+            internationalMessages:
+              type: string
+              description: URL template to retrieve international Error Messages
+              example: 'http://api.example.com/errors?code=B032&lang={lang}'
+  securitySchemes:
+    JWT Bearer Token:
+      type: http
+      scheme: bearer
+      description: JSON Web Token contains signed and encrypted  User ID
+security:
+  - JWT Bearer Token: []
